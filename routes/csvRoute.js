@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const Web3 = require("web3");
-const web3 = new Web3("http://59.51.127.19:8545");
+const web3 = new Web3(require("../config").providerAddr);
 const transformData = require("../utils/transformData");
 
-router.post("/:walletAddr", async (req, res) => {
+router.get("/:walletAddr", async (req, res) => {
   const addr = req.params.walletAddr;
   if (!web3.utils.isAddress(addr))
     return res.status(400).send("not a valid address");
@@ -15,6 +15,8 @@ router.post("/:walletAddr", async (req, res) => {
   const mongodb = await require("../startup/db")();
   const db = mongodb.db("myproject");
   const collection = db.collection("transactions");
+  //get start timestamp
+  const now = Date.now();
   //get needed data from db
   const fromResult = await collection
     .find({ from: addr })
@@ -34,6 +36,9 @@ router.post("/:walletAddr", async (req, res) => {
   //transform data to what we need
   const result = fromResult.concat(toResult).concat(inputResult);
   const finalRes = await transformData(result);
+  //get end timestamp
+  const end = Date.now();
+  console.log("time spent(ms):", end - now);
   //give back in a form of json
   return res.status(200).json(finalRes);
 });

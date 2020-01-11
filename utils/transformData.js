@@ -1,12 +1,24 @@
-const abiDecoder = require("abi-decoder");
+const abi = require("../erc/baseABI");
+const decoder = require("abi-decoder").decodeMethod;
+require("abi-decoder").addABI(abi);
 const toDate = require("./toDate");
-const abi = require("../erc20/baseABI");
 const Web3 = require("web3");
-const web3 = new Web3("http://59.51.127.19:8545");
+const web3 = new Web3(require("../config").providerAddr);
+const {
+  getDecimals,
+  getSymbol,
+  tokenData,
+  getTokenLength
+} = require("./abiMethods");
+
+const { writeToTokenJson } = require("./addToTokenJson");
+const initialTokenLength = getTokenLength();
 
 module.exports = async function(arr) {
   const finalRes = [];
-  for (let i = 0; i < arr.length; i++) {
+  const length = arr.length;
+  for (let i = 0; i < length; i++) {
+    console.log(i, length);
     let from, to, value, time, symbol;
     if (arr[i].input === "0x" && arr[i].value !== "0") {
       //eth
@@ -18,35 +30,39 @@ module.exports = async function(arr) {
       finalRes.push({ time, from, to, value, symbol });
     } else {
       //erc20
-      const contract = new web3.eth.Contract(abi, arr[i].to);
-      abiDecoder.addABI(abi);
-      const decodedData = abiDecoder.decodeMethod(arr[i].input);
+      const decodedData = decoder(arr[i].input);
       if (decodedData.name === "transfer") {
-        const decimals = await contract.methods.decimals().call();
+        let decimal = getDecimals(arr[i].to);
+        if (!decimal) {
+          //write to ethToken json file
+          const contract = new web3.eth.Contract(abi, arr[i].to);
+          const symbol = await contract.methods.symbol().call();
+          decimal = await contract.methods.decimals().call();
+          tokenData[arr[i].to] = {
+            address: arr[i].to,
+            symbol,
+            decimal,
+            type: "default"
+          };
+          delete contract;
+        }
         from = arr[i].from;
         to = decodedData.params[0].value;
-        value = decodedData.params[1].value / 10 ** decimals;
-        if (
-          arr[i].to.toLowerCase() ===
-          "0xdcD85914b8aE28c1E62f1C488E1D968D5aaFfE2b".toLowerCase()
-        )
-          symbol = "TOP";
-        else if (
-          arr[i].to.toLowerCase() ===
-          "0xB31C219959E06f9aFBeB36b388a4BaD13E802725".toLowerCase()
-        )
-          symbol = "ONOT";
-        else {
-          symbol = await contract.methods.symbol().call();
-        }
+        value = decodedData.params[1].value / 10 ** decimal;
+        symbol = getSymbol(arr[i].to);
         time = toDate(arr[i].timestamp);
         finalRes.push({ time, from, to, value, symbol });
       } else {
         console.log(
           `${decodedData.name} method is invoked, but were not handled`
         );
+        console.log(`undefined symbol contract addr: ${element.to}`);
       }
     }
+  }
+  if (getTokenLength() > initialTokenLength) {
+    console.log("write to tokenJson file");
+    writeToTokenJson(__dirname + "/../erc/ethToken.json", tokenData);
   }
   return finalRes;
 };

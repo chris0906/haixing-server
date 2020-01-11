@@ -1,8 +1,7 @@
 const express = require("express");
 app = express();
 require("./startup/db")();
-
-const csvRouter = require("./routes/csv");
+const csvRouter = require("./routes/csvRoute");
 
 app.use(express.json());
 app.use("/api/csv", csvRouter);
