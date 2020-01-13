@@ -1,18 +1,48 @@
 const express = require("express");
-const router = express.Router();
+const csvRouter = express.Router();
 const Web3 = require("web3");
-const web3 = new Web3(require("../config").providerAddr);
+const web3 = new Web3(require("../config/provider").providerAddr);
 const transformData = require("../utils/transformData");
+const { getDbInstance } = require("../startup/db");
 
-router.get("/:walletAddr", async (req, res) => {
-  const addr = req.params.walletAddr;
-  if (!web3.utils.isAddress(addr))
-    return res.status(400).send("not a valid address");
+const { getTokenLength, tokenData } = require("../utils/abiMethods");
+const { writeToTokenJson } = require("../utils/addToTokenJson");
+let initialTokenLength = getTokenLength();
+
+csvRouter.get("/:walletAddr", async (req, res) => {
+  try {
+    const addr = req.params.walletAddr;
+    const start = Date.now();
+    const finalRes = await getTransactions(addr);
+    // write to json file
+    if (getTokenLength() > initialTokenLength) {
+      // update initial token length
+      console.log(
+        "write to tokenJson file:",
+        getTokenLength() - initialTokenLength
+      );
+      initialTokenLength = getTokenLength();
+      writeToTokenJson(__dirname + "/../erc/ethToken.json", tokenData);
+    }
+    //get end timestamp
+    const end = Date.now();
+    console.log(
+      `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${finalRes.length}`
+    );
+    console.log("time spent(ms):", end - start);
+    //give back in a form of json
+    return res.status(200).json(finalRes);
+  } catch (error) {
+    return res.status(400).send(error);
+  }
+});
+
+async function getTransactions(addr) {
+  if (!web3.utils.isAddress(addr)) throw new Error("not a valid address");
   const code = await web3.eth.getCode(addr);
-  if (code.length > 2)
-    return res.status(400).send("please don't send a contract address");
+  if (code.length > 2) throw new Error("contract address is not acceptable");
   //get db instance
-  const mongodb = await require("../startup/db")();
+  const mongodb = getDbInstance();
   const db = mongodb.db("myproject");
   const collection = db.collection("transactions");
   //get start timestamp
@@ -36,11 +66,8 @@ router.get("/:walletAddr", async (req, res) => {
   //transform data to what we need
   const result = fromResult.concat(toResult).concat(inputResult);
   const finalRes = await transformData(result);
-  //get end timestamp
-  const end = Date.now();
-  console.log("time spent(ms):", end - now);
   //give back in a form of json
-  return res.status(200).json(finalRes);
-});
+  return finalRes;
+}
 
-module.exports = router;
+module.exports = { csvRouter, getTransactions };

@@ -1,7 +1,16 @@
 const express = require("express");
 app = express();
-require("./startup/db")();
-const csvRouter = require("./routes/csvRoute");
+//initiate database
+const { initDB, initInMemDB } = require("./startup/db");
+initDB();
+initInMemDB();
+
+//cache big address transactions
+const cacheBigAddrTrans = require("./startup/cacheBigAddrTransactions");
+cacheBigAddrTrans();
+
+//initiate router
+const { csvRouter } = require("./routes/csvRoute");
 
 app.use(express.json());
 app.use("/api/csv", csvRouter);
