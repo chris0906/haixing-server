@@ -6,8 +6,8 @@ initDB();
 initInMemDB();
 
 //cache big address transactions
-const cacheBigAddrTrans = require("./startup/cacheBigAddrTransactions");
-cacheBigAddrTrans();
+const setCycleCacheForBigAddr = require("./startup/cacheBigAddrTransactions");
+setCycleCacheForBigAddr();
 
 //initiate router
 const { csvRouter } = require("./routes/csvRoute");

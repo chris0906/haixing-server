@@ -3,16 +3,27 @@ const csvRouter = express.Router();
 const Web3 = require("web3");
 const web3 = new Web3(require("../config/provider").providerAddr);
 const transformData = require("../utils/transformData");
-const { getDbInstance } = require("../startup/db");
+const { getDbInstance, getInMemDbInstance } = require("../startup/db");
 
 const { getTokenLength, tokenData } = require("../utils/abiMethods");
 const { writeToTokenJson } = require("../utils/addToTokenJson");
 let initialTokenLength = getTokenLength();
+const bigAddrArr = getBigAddrArr(require("../config/bigAddr"));
 
 csvRouter.get("/:walletAddr", async (req, res) => {
   try {
     const addr = req.params.walletAddr;
     const start = Date.now();
+    // if it's big address, get it grom memory
+    if (bigAddrArr.includes(addr)) {
+      const result = await getInMemTransactions(addr.toLowerCase());
+      const end = Date.now();
+      console.log(
+        "get transactions from memory, time spent(ms): ",
+        end - start
+      );
+      return res.status(200).send(result);
+    }
     const finalRes = await getTransactions(addr);
     // write to json file
     if (getTokenLength() > initialTokenLength) {
@@ -46,8 +57,9 @@ async function getTransactions(addr) {
   const db = mongodb.db("myproject");
   const collection = db.collection("transactions");
   //get start timestamp
-  const now = Date.now();
+  let start = Date.now();
   //get needed data from db
+  console.log("begin query database");
   const fromResult = await collection
     .find({ from: addr })
     .collation({ locale: "en", strength: 2 })
@@ -63,11 +75,29 @@ async function getTransactions(addr) {
       input: eval("/^" + inputData + "/")
     })
     .toArray();
+  let end = Date.now();
+  console.log("finish query database, time spent(ms): ", end - start);
   //transform data to what we need
   const result = fromResult.concat(toResult).concat(inputResult);
   const finalRes = await transformData(result);
   //give back in a form of json
   return finalRes;
+}
+
+async function getInMemTransactions(addr) {
+  const dbInstance = getInMemDbInstance();
+  const db = dbInstance.db("address");
+  const collection = db.collection(addr);
+  const result = collection.find({}).toArray();
+  return result;
+}
+
+function getBigAddrArr(bigAddrJson) {
+  const arr = [];
+  for (let key in bigAddrJson) {
+    arr.push(bigAddrJson[key]);
+  }
+  return arr;
 }
 
 module.exports = { csvRouter, getTransactions };
