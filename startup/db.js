@@ -7,8 +7,7 @@ async function initDB() {
       client = new MongoClient("mongodb://localhost:27017", {
         useUnifiedTopology: true
       });
-      await client.connect();
-      console.log("connect to db, port: 27017");
+      return await client.connect();
     }
   } catch (error) {
     console.log(error);
@@ -20,8 +19,7 @@ async function initInMemDB() {
       inMemClient = new MongoClient("mongodb://localhost:27018", {
         useUnifiedTopology: true
       });
-      await inMemClient.connect();
-      console.log("connect to in memory db, port: 27018");
+      return await inMemClient.connect();
     }
   } catch (error) {
     console.log(error);

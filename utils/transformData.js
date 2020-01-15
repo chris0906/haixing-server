@@ -35,7 +35,7 @@ module.exports = async function(arr) {
         console.log("unknown input data, contract address: ", arr[i].to);
       } else if (decodedData.name === "transfer") {
         let decimal = getDecimals(arr[i].to);
-        if (!decimal) {
+        if (decimal === null) {
           //if ethToken json file does not have this token information, then write to ethToken json file
           const contract = new web3.eth.Contract(abi, arr[i].to);
           const symbol = await contract.methods.symbol().call();
@@ -58,7 +58,6 @@ module.exports = async function(arr) {
         console.log(
           `${decodedData.name} method is invoked, but were not handled`
         );
-        console.log(`undefined symbol contract addr: ${element.to}`);
       }
     }
   }

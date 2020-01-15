@@ -79,9 +79,13 @@ async function getTransactions(addr) {
   console.log("finish query database, time spent(ms): ", end - start);
   //transform data to what we need
   const result = fromResult.concat(toResult).concat(inputResult);
+  const maxBlockNumber = Math.max.apply(
+    Math,
+    result.map(e => e.blockNumber)
+  );
   const finalRes = await transformData(result);
   //give back in a form of json
-  return finalRes;
+  return [finalRes, maxBlockNumber];
 }
 
 async function getInMemTransactions(addr) {
