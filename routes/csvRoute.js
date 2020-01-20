@@ -22,6 +22,9 @@ csvRouter.get("/:walletAddr", async (req, res) => {
         "get transactions from memory, time spent(ms): ",
         end - start
       );
+      console.log(
+        `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${result.length}`
+      );
       return res.status(200).send(result);
     }
     const finalRes = await getTransactions(addr);
@@ -38,11 +41,11 @@ csvRouter.get("/:walletAddr", async (req, res) => {
     //get end timestamp
     const end = Date.now();
     console.log(
-      `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${finalRes.length}`
+      `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${finalRes[0].length}`
     );
     console.log("time spent(ms):", end - start);
     //give back in a form of json
-    return res.status(200).json(finalRes);
+    return res.status(200).json(finalRes[0]);
   } catch (error) {
     return res.status(400).send(error);
   }
@@ -60,14 +63,21 @@ async function getTransactions(addr) {
   let start = Date.now();
   //get needed data from db
   console.log("begin query database");
+  let maxBlockNumber;
   const fromResult = await collection
     .find({ from: addr })
     .collation({ locale: "en", strength: 2 })
     .toArray();
+  if (fromResult.length !== 0)
+    maxBlockNumber = fromResult[fromResult.length - 1].blockNumber;
   const toResult = await collection
     .find({ to: addr })
     .collation({ locale: "en", strength: 2 })
     .toArray();
+  if (toResult.length !== 0)
+    toResult[toResult.length - 1].blockNumber > maxBlockNumber
+      ? (maxBlockNumber = toResult[toResult.length - 1].blockNumber)
+      : "";
   const transferCode = "0xa9059cbb000000000000000000000000";
   const inputData = transferCode + addr.toLowerCase().substr(2);
   const inputResult = await collection
@@ -75,14 +85,14 @@ async function getTransactions(addr) {
       input: eval("/^" + inputData + "/")
     })
     .toArray();
+  if (inputResult.length !== 0)
+    inputResult[inputResult.length - 1].blockNumber > maxBlockNumber
+      ? (maxBlockNumber = inputResult[inputResult.length - 1].blockNumber)
+      : "";
   let end = Date.now();
   console.log("finish query database, time spent(ms): ", end - start);
   //transform data to what we need
   const result = fromResult.concat(toResult).concat(inputResult);
-  const maxBlockNumber = Math.max.apply(
-    Math,
-    result.map(e => e.blockNumber)
-  );
   const finalRes = await transformData(result);
   //give back in a form of json
   return [finalRes, maxBlockNumber];
