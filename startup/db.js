@@ -26,6 +26,19 @@ async function initInMemDB() {
   }
 }
 
+async function initTempDB() {
+  try {
+    if (typeof tempClient === "undefined") {
+      tempClient = new MongoClient("mongodb://localhost:27019", {
+        useUnifiedTopology: true
+      });
+      return await tempClient.connect();
+    }
+  } catch (error) {
+    console.log(error);
+  }
+}
+
 function getDbInstance() {
   if (typeof client === "undefined") {
     console.log("db does not initiate, please call initDB first");
@@ -43,4 +56,19 @@ function getInMemDbInstance() {
   }
   return inMemClient;
 }
-module.exports = { initDB, initInMemDB, getDbInstance, getInMemDbInstance };
+
+function getTempDbInstance() {
+  if (typeof tempClient === "undefined") {
+    console.log("temp db does not initiate, please call initTempDB first");
+    return null;
+  }
+  return tempClient;
+}
+module.exports = {
+  initDB,
+  initInMemDB,
+  initTempDB,
+  getDbInstance,
+  getInMemDbInstance,
+  getTempDbInstance
+};

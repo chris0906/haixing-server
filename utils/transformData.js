@@ -37,6 +37,11 @@ module.exports = async function(arr) {
         let decimal = getDecimals(arr[i].to);
         if (decimal === null) {
           //if ethToken json file does not have this token information, then write to ethToken json file
+          const code = await web3.eth.getCode(arr[i].to);
+          if (code.length <= 2) {
+            console.log("not a valid contract address to get decimal from");
+            continue;
+          }
           const contract = new web3.eth.Contract(abi, arr[i].to);
           const symbol = await contract.methods.symbol().call();
           decimal = await contract.methods.decimals().call();
@@ -51,6 +56,7 @@ module.exports = async function(arr) {
         from = arr[i].from;
         to = decodedData.params[0].value;
         value = decodedData.params[1].value / 10 ** decimal;
+        value = value.toString();
         symbol = getSymbol(arr[i].to);
         time = toDate(arr[i].timestamp);
         finalRes.push({ time, from, to, value, symbol });

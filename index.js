@@ -2,11 +2,11 @@ const express = require("express");
 app = express();
 
 //initiate database
-const { initDB, initInMemDB } = require("./startup/db");
+const { initDB, initTempDB } = require("./startup/db");
 initDB().then(() => {
   console.log("connect to db, port: 27017");
-  initInMemDB().then(() => {
-    console.log("connect to in memory db, port: 27018");
+  initTempDB().then(() => {
+    console.log("connect to in memory db, port: 27019");
   });
 });
 

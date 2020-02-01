@@ -1,29 +1,34 @@
+const toDate = require("../utils/toDate");
 const express = require("express");
 const csvRouter = express.Router();
 const Web3 = require("web3");
 const web3 = new Web3(require("../config/provider").providerAddr);
 const transformData = require("../utils/transformData");
-const { getDbInstance, getInMemDbInstance } = require("../startup/db");
+const { getDbInstance, getTempDbInstance } = require("../startup/db");
 
 const { getTokenLength, tokenData } = require("../utils/abiMethods");
 const { writeToTokenJson } = require("../utils/addToTokenJson");
 let initialTokenLength = getTokenLength();
-const bigAddrArr = getBigAddrArr(require("../config/bigAddr"));
+const bigAddrObj = require("../config/bigAddr"); //json object
+const bigAddrArr = getBigAddrArr(bigAddrObj);
 
 csvRouter.get("/:walletAddr", async (req, res) => {
   try {
-    const addr = req.params.walletAddr;
+    const addr = req.params.walletAddr.toLowerCase();
     const start = Date.now();
+    const requestTime = toDate(Math.round(start / 1000));
     // if it's big address, get it grom memory
     if (bigAddrArr.includes(addr)) {
-      const result = await getInMemTransactions(addr.toLowerCase());
+      const label = getLabelByAddr(addr);
+      const result = await getBigAddrTransactions(label, addr);
       const end = Date.now();
       console.log(
         "get transactions from memory, time spent(ms): ",
         end - start
       );
+
       console.log(
-        `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${result.length}`
+        `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${result.length}, time:${requestTime}`
       );
       return res.status(200).send(result);
     }
@@ -41,7 +46,7 @@ csvRouter.get("/:walletAddr", async (req, res) => {
     //get end timestamp
     const end = Date.now();
     console.log(
-      `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${finalRes[0].length}`
+      `ipAddress:${req.connection.remoteAddress}, walletAddr:${addr}, transaction count:${finalRes[0].length}, time:${requestTime}`
     );
     console.log("time spent(ms):", end - start);
     //give back in a form of json
@@ -98,20 +103,26 @@ async function getTransactions(addr) {
   return [finalRes, maxBlockNumber];
 }
 
-async function getInMemTransactions(addr) {
-  const dbInstance = getInMemDbInstance();
+async function getBigAddrTransactions(label, addr) {
+  const dbInstance = getTempDbInstance();
   const db = dbInstance.db("address");
-  const collection = db.collection(addr);
-  const result = collection.find({}).toArray();
+  const collection = db.collection(label + "_" + addr);
+  const result = collection.find({}, { projection: { _id: 0 } }).toArray();
   return result;
 }
 
+//get all address of the bigAddr json file and form it into an array
 function getBigAddrArr(bigAddrJson) {
   const arr = [];
   for (let key in bigAddrJson) {
-    arr.push(bigAddrJson[key]);
+    arr.push(bigAddrJson[key].toLowerCase());
   }
   return arr;
 }
 
+function getLabelByAddr(addr) {
+  for (let key in bigAddrObj) {
+    if (bigAddrObj[key].toLowerCase() === addr.toLowerCase()) return key;
+  }
+}
 module.exports = { csvRouter, getTransactions };
